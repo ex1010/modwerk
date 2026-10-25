@@ -167,9 +167,11 @@ primary voice's sample, so the chord is lost there. SPACE writes and reads
 only `+0..+$3DA2` of its FX2 slot buffer (15,779 of 16,384 words, the most
 any stock effect writes), so it leaves Sidechain Compressor's key window
 (`+$3DFE..+$3FFF` of the T3/T7 slots) alone. FRACT is a USB runtime
-package; composition with Analog BD and the stock effects in Modwerk's card
-(firmware) builds has not been compared with native octabam
-(`npm run module:verify` not run). FX2 only: FRACT's effect id is 7. Its
+package. The browser's card builder was compared with native octabam over
+158 selections: 56 images match outside declared platform writes and 102
+refusals agree, including combinations that cannot fit beside Analog BD.
+This is build evidence; the resulting card images were not tested on a unit.
+FX2 only: FRACT's effect id is 7. Its
 development builds used 9, which LOFI2 holds since 2026-10-21: a Part saved
 with FRACT at 9 does not bring FRACT back, so choose FRACT again on that
 FX2. Over USB, remove an earlier FRACT and load a project that never had it

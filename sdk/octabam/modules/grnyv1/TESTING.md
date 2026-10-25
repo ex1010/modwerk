@@ -18,9 +18,33 @@ source fingerprint from
 Existing audio, resource and partial hardware evidence is retained by this
 object equivalence, not by a fresh DSP or hardware test. The shared package
 builder and browser runtime now include FRACT's five units, DSP, descriptor
-and guarded source-fetch detour. Isolated compilation, import and native/
-browser comparison on the merged upstream base are being checked; results
-will be recorded below.
+and guarded source-fetch detour. Static DSP metadata includes FX id 7 at
+native priority 19, so the browser places SPACE and reserves its stock donors.
+
+On source-package commit `fbc366ba` (merged upstream `32a9fb8c`), the pinned
+Docker toolchain compiled the authored packages without stock firmware or
+network access. Development import and `--check-only --verify-existing`
+passed. Native/browser comparison on the author's original OS 1.40C passed
+all 158 selections: 56 module-owned images match outside the declared
+platform writes, 102 refusals match, zero mismatches. A changed original OS
+is refused. `sdk/native-comparisons/grnyv1.json` contains fingerprints only.
+Pair verification checked 31 modules, 465 pairs in three contexts, with
+10 existing refusals and no new FRACT clash. These checks establish build
+integration, not a new USB installation or hardware qualification.
+
+The integration Jev advisory sampled 16/24 fragments: zero flagged,
+15 uncertain, eight deferred and five assembly files static-only. All
+uncertain locations and the deferred declarations were inspected with
+callers; assembled-object equality, isolated compilation and native parity
+provide independent evidence. The advisory remains partial, not complete.
+The bounded follow-up reused the 16 judgments and passed typecheck/source
+parity; it made no new API requests. With imported data included, its ledger
+has 58 parsed fragments, 45 deferred entries (including three oversized
+generated files), 15 uncertain judgments and seven static-only files.
+Imported artifacts are checked by the exact source importer and native
+comparison; this does not turn deferred API coverage into reviewed code.
+The author waived full DSP-suite and `pr:ready` reruns; targeted integration
+checks do not replace those or the remaining hardware checks.
 
 ## Author attribution correction (2026-10-25)
 
@@ -40,9 +64,10 @@ is byte-identical to the installed package: 22,148 bytes, SHA-256
 All grain, controller and DSP source files are unchanged. Existing resource
 and partial device evidence is retained for those exact runtime bytes;
 this is an attribution equivalence check, not a fresh test-suite or hardware
-run. The submission branch uses newer Modwerk source `5fe6ae2d`; a package
-build against that revision, Docker import and native/browser parity remain
-unverified. The user requested no further test-suite runs before the draft.
+run. At the time of this attribution check, Docker compilation/import and
+native/browser parity on the newer submission base were unverified; the
+integration repair above records their subsequent results. The user waived
+full test-suite reruns before the draft.
 
 ## Linked output-envelope build (2026-10-25)
 
