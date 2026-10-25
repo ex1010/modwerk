@@ -32,6 +32,21 @@ Pair verification checked 31 modules, 465 pairs in three contexts, with
 10 existing refusals and no new FRACT clash. These checks establish build
 integration, not a new USB installation or hardware qualification.
 
+After merging upstream `916ce01b`, the exact source-package import check,
+native fingerprint check, 44 catalog/engine test files (304 tests), typecheck,
+lint (11 existing warnings), Vite bundle, contracts and compatibility/pair
+checks passed. Release-note, document-size, licence, machine and vendored-kit
+checks passed too. Tape Echo and Euclid pin four shared JSON inputs, so adding
+FRACT required refreshing those source hashes. Their reviewed image hashes,
+copy spans and stock guards are unchanged. With the kit-pinned Elekloader
+`3b31ef3c`, Python 3.12 and the DSP assembler on PATH,
+`python3 -B scripts/octatrack-module-packages.py --check` reproduced every
+current published package byte for byte. Play Modes remains deliberately
+held at its older published version; its recipe/package is untouched.
+The final `npm run sdk:check` passed: 458 SDK tests (18 skipped), upload
+host checks and 37 recipe tests (one skipped). Skipped physical/emulator
+checks are not counted as hardware validation.
+
 The integration Jev advisory sampled 16/24 fragments: zero flagged,
 15 uncertain, eight deferred and five assembly files static-only. All
 uncertain locations and the deferred declarations were inspected with
