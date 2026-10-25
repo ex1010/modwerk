@@ -1,5 +1,27 @@
 # FRACT tests
 
+## Source-package integration repair (2026-10-26)
+
+The submission now includes deterministic GCC 16.2.0 generation and the
+five authored ColdFire assembly units consumed by the native manifest.
+Run `python3 -B sdk/octabam/modules/grnyv1/generate.py --check` from the
+repository root to verify them without firmware. The five units assembled
+with `m68k-elf-as -mcpu=54455` are byte-identical to the prepared sources
+used for the installed runtime. Only four source-path comments in view.s
+differ from that preparation; they produce no machine bytes. The C, DSP,
+handwritten kernels, grain count and SPCE behavior are unchanged.
+
+Adding the generator, assembly and generated headers changes the native
+source fingerprint from
+`1dd1b2483751a763678adfc73879874f1b0f1557896355fd85469b2e177fc6a8` to
+`2fb01eaa8a26b0c3fec74ef41cc947aebbc74693c2f8aac2bdd87a4792f82ad3`.
+Existing audio, resource and partial hardware evidence is retained by this
+object equivalence, not by a fresh DSP or hardware test. The shared package
+builder and browser runtime now include FRACT's five units, DSP, descriptor
+and guarded source-fetch detour. Isolated compilation, import and native/
+browser comparison on the merged upstream base are being checked; results
+will be recorded below.
+
 ## Author attribution correction (2026-10-25)
 
 The author and author URL now identify [ex1010](https://github.com/ex1010).
