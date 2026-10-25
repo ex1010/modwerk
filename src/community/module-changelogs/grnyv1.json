@@ -1,0 +1,13 @@
+[
+  {
+    "version": "0.10.0-experimental",
+    "date": "2026-10-25",
+    "changes": [
+      "FRACT adds three overlapping grains from a Flex sample to FX2, with position, size, direction, scatter, shape and stereo SPACE controls.",
+      "Use a Flex track with TSTR OFF. One FRACT track can play at a time; other FRACT tracks play dry and display the owner track.",
+      "Above SPCE 96, a darker tail and linked stereo envelope smoothing soften repeated attacks. SPCE 0–96 and grain rendering are unchanged; individual grains can remain audible at 127.",
+      "Install over USB with FX2 id 7. Earlier development Parts need FRACT reselected and defaults reset; see the migration notes in README.md.",
+      "Experimental: the exact package was accepted on an Octatrack MKII, with partial listening results. Full controls, CPU and persistence checks remain unverified; SETUP controls take no locks, LFOs or scenes."
+    ]
+  }
+]
