@@ -1,0 +1,3 @@
+# Octatrack source-machine START callbacks
+
+Registered source machines can supply their own versioned sample-start callback without replacing the shared FLEX START table. Legacy machines and Mute Modes retain their dispatch, and malformed or unpaid callbacks refuse safely before a voice starts.

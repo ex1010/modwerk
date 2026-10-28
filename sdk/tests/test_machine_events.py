@@ -60,14 +60,23 @@ class MachineEventTests(unittest.TestCase):
         result = host(self, ADAPTERS / 'test_machine_contributors.c', ADAPTERS / 'machine_lifetime.c', ADAPTERS / 'machine_parts.c')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_board_start_admission_before_ordinary_fast_path(self):
+        result = host(self, ADAPTERS / 'test_machine_start_admission.c',
+                      *(ADAPTERS / (name + '.c') for name in ('machine_contributors', 'machine_lifetime', 'machine_parts',
+                        'machine_admission', 'machine_declarations', 'table_admission', 'table_declarations',
+                        'sample_editor_actions')))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_registry_cross_compiles_without_new_optimisation_flags(self):
         gcc = shutil.which('m68k-elf-gcc')
         if not gcc:
             self.skipTest('no ColdFire compiler')
         with tempfile.TemporaryDirectory() as temp:
-            subprocess.run([gcc, '-mcpu=5475', '-msoft-float', '-O2', '-std=c99', '-ffreestanding', '-fno-builtin', '-Wall', '-Wextra',
+            for source in (OT / 'elekloader/machine_registry.c', ADAPTERS / 'machine_contributors.c',
+                           ADAPTERS / 'machine_admission_runtime.c'):
+                subprocess.run([gcc, '-mcpu=5475', '-msoft-float', '-O2', '-std=c99', '-ffreestanding', '-fno-builtin', '-Wall', '-Wextra',
                             '-Werror', '-DMODWERK_RUNTIME_EVENTS', '-DRUNTIME_MODULES=128u', *INCLUDES, '-c',
-                            OT / 'elekloader/machine_registry.c', '-o', temp + '/r.o'], check=True, capture_output=True)
+                            source, '-o', temp + '/' + source.stem + '.o'], check=True, capture_output=True)
             subprocess.run(['m68k-elf-as', '-mcpu=5475', OT / 'elekloader/machine_registry.s', '-o', temp + '/s.o'],
                            check=True, capture_output=True)
 
@@ -122,6 +131,20 @@ class MachineEventTests(unittest.TestCase):
                     at = int(target[0], 16) if target[0] else int(target[1])
                     inside = [hex(a) for a, n in spans if a < at < a + n]
                     self.assertEqual(inside, [], '%s %s jumps to %#x' % (name, unit.label, at))
+
+    def test_start_selection_leaves_existing_module_writes_disjoint(self):
+        """Do not take the selected call: Mute Modes owns its argument pushes/call."""
+        from remix import registry
+        reg = json.loads((OT / 'events.json').read_text())
+        start = next(e for e in reg['events'] if e['event'] == 'ot_machine_starts')
+        spans = [(int(s['site'], 16), s['length']) for s in start['sites']]
+        for module in registry.modules().values():
+            writes = [(d.site, d.pad_to or 6) for d in module.detours]
+            writes += [(p.addr, len(p.write)) for p in module.pokes]
+            writes += [(r.addr, 4) for r in module.symbol_refs]
+            for at, length in writes:
+                self.assertFalse(any(at < a + n and a < at + length for a, n in spans),
+                                 '%s writes at %#x overlap source START selection' % (module.name, at))
 
 
 if __name__ == '__main__':

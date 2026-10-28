@@ -55,7 +55,7 @@ void mg_tick(void) {}
 /* The loader's side: the table rows and the machine glue. */
 #include "loader.h"
 #include "modwerk_events.h"
-static uintptr_t volatile machine_row[5], sequencer_row[9];
+static uintptr_t volatile machine_row[5], sequencer_row[9], start_row[5];
 static int masked;
 uint32_t modwerk_machine_mask(void) { CHECK(!masked); masked = 1; return 7; }
 void modwerk_machine_unmask(uint32_t s) { CHECK(masked && s == 7); masked = 0; }
@@ -78,7 +78,8 @@ void mw_seq_get_none(void) {}
 void mw_seq_set_none(void) {}
 #define modwerk_runtime_event_row host_rows
 static uintptr_t volatile *const host_rows[RUNTIME_SITE_EVENTS] = {
-    [MODWERK_OT_MACHINES - RUNTIME_EVENTS] = machine_row, [MODWERK_OT_SEQUENCER_ROWS - RUNTIME_EVENTS] = sequencer_row};
+    [MODWERK_OT_MACHINES - RUNTIME_EVENTS] = machine_row, [MODWERK_OT_SEQUENCER_ROWS - RUNTIME_EVENTS] = sequencer_row,
+    [MODWERK_OT_MACHINE_STARTS - RUNTIME_EVENTS] = start_row};
 static volatile uint32_t host_timer; /* the frame timer (DTCN3): the synthetic renders advance it */
 #define DTCN3 host_timer
 #include "machine_registry.c"
@@ -168,6 +169,90 @@ static unsigned clamp_now(void)
     unsigned k = clamps[at[0] - 0x40078c20u];
     for (unsigned i = 0; i < 5; ++i) if (clamps[at[i] - 0x40078c20u] != k || clamps[at[i] + 6u - 0x40078c20u] != k) return 0;
     return k;
+}
+static unsigned start_calls, fallback_calls, fm_calls;
+static int source_start(unsigned t, unsigned s, unsigned f)
+{ CHECK(!masked); ++start_calls; return (int)(1000u + t + s + f); }
+static int fallback_start(unsigned t, unsigned s, unsigned f)
+{ CHECK(!masked); ++fallback_calls; return (int)(2000u + t + s + f); }
+static int fm_start(unsigned t, unsigned s, unsigned f)
+{ CHECK(!masked); ++fm_calls; return (int)(3000u + t + s + f); }
+static int selected_start(unsigned t, unsigned s, unsigned f, SourceStart *fallback)
+{
+    SourceStart *call = mw_source_start_select(t, fallback);
+    return call ? call(t, s, f) : 0;
+}
+static void check_source_starts(void)
+{
+    struct modwerk_machine custom = A;
+    custom.sig[0] = 'S'; custom.sig[1] = 'T';
+    custom.flags |= MODWERK_MACHINE_START;
+    const void *one[] = {&custom};
+    struct modwerk_machine_start record = {MODWERK_MACHINE_START_ABI, sizeof record, &custom, source_start};
+    rows(one, 1, 0, 0);
+    start_row[0] = (uintptr_t)&record;
+    for (unsigned t = 0; t < 8u; ++t) {
+        part0()[0x22 + t] = 1;
+        memcpy((void *)(part0() + SIG + 30u * t), "ST\1", 3);
+        for (unsigned f = 0xc0u; f <= 0xe0u; f += 0x20u)
+            CHECK(selected_start(t, 127u, f, fallback_start) == (int)(1127u + t + f));
+    }
+    CHECK(start_calls == 16u && !fallback_calls && !fm_calls);
+    /* A trig gate can skip the selected call: selection has no START effects. */
+    CHECK(mw_source_start_select(0, fallback_start) != fallback_start);
+    CHECK(start_calls == 16u && !fallback_calls && !fm_calls);
+    CHECK(!selected_start(8, 127, 0xc0, fallback_start));
+    unsigned calls = start_calls;
+    /* No callback means no stock interpretation of custom controls, and no
+     * continuation of a previously sounding voice under that owner. */
+    start_row[0] = 0;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    CHECK(mw_source_render_impl(0, 0, 0, 16) == -9);
+    start_row[0] = (uintptr_t)&record;
+    record.abi = 2;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    record.abi = MODWERK_MACHINE_START_ABI; record.bytes--;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    record.bytes = sizeof record; record.start = 0;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    record.start = source_start; record.machine = 0;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    record.machine = &V;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    record.machine = &custom; start_row[1] = (uintptr_t)&record;
+    CHECK(!selected_start(0, 127, 0xc0, fallback_start));
+    start_row[1] = 0;
+    CHECK(start_calls == calls && !fallback_calls);
+    CHECK(selected_start(0, 127, 0xc0, fallback_start) == 1319);
+    /* Enter a new frame: a stale timestamp from the guard overload tests is
+     * otherwise allowed to shed this render before the callback is reached. */
+    fresh(); CHECK(frame(0, 0, 0) > 0);
+    /* A source price is mandatory before START as well as before render. */
+    custom.source_kind = 1; custom.source_voice = 411; custom.source_engine = 3;
+    room = 0; CHECK(!claim(0, &custom));
+    CHECK(!selected_start(0, 1, 0xe0, fallback_start));
+    CHECK(mw_source_render_impl(0, 0, 0, 16) == -9);
+    room = 1; CHECK(claim(0, &custom));
+    CHECK(selected_start(0, 1, 0xe0, fallback_start) == 1225);
+    release(0);
+    /* Unowned tracks and legacy machines keep the exact selected fallback,
+     * including FM. Extension rows do not claim a legacy machine implicitly. */
+    const void *legacy[] = {&F}; rows(legacy, 1, 0, 0);
+    memcpy((void *)(part0() + SIG), "FM\1", 3);
+    CHECK(mw_source_start_select(0, fm_start) == fm_start);
+    CHECK(mw_source_start_select(0, 0) == 0);
+    CHECK(selected_start(0, 7, 0xe0, fm_start) == 3231 && fm_calls == 1u);
+    memset((void *)(part0() + SIG), 0, 3);
+    CHECK(selected_start(0, 7, 0xc0, fallback_start) == 2199 && fallback_calls == 1u);
+    CHECK(!selected_start(0, 7, 0xc0, 0));
+    put_u32(BANK, 0);
+    CHECK(mw_source_start_select(0, fm_start) == fm_start);
+    put_u32(BANK, 0x46000000u);
+    /* Known PROTECT signatures remain fail-closed without the module. */
+    rows(0, 0, 0, 0); memcpy((void *)(part0() + SIG), "FM\1", 3);
+    CHECK(!selected_start(0, 7, 0xc0, fm_start) && fm_calls == 1u);
+    start_row[0] = 0;
+    for (unsigned t = 0; t < 8u; ++t) memset((void *)(part0() + SIG + 30u * t), 0, 3);
 }
 
 int main(void)
@@ -439,6 +524,7 @@ int main(void)
     CHECK((counts_now() & 0xff) == 6u && mw_seq_getters[3] == (void *)1 && mw_seq_labels[6] == (const void *)mw_seq_none);
     rows(0, 0, 0, 0);
     CHECK(counts_now() == (5u << 24 | 5u << 16 | 4u << 8 | 3u) && !masked && clamp_now() == 5);
+    check_source_starts();
     if (failures) { fprintf(stderr, "%u registry checks failed\n", failures); return 1; }
     puts("Machine registry: rows by table order, admission before mutation, signatures and defaults in both copies, absent "
          "machines as stock, the validator's protection and wrapper chain, render routing, keyed SEQUENCER rows, chooser "
