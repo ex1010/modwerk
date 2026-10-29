@@ -57,7 +57,7 @@ void mg_tick(void) {}
 /* The loader's side: the table rows and the machine glue. */
 #include "loader.h"
 #include "modwerk_events.h"
-static uintptr_t volatile machine_row[5], sequencer_row[9], start_row[5];
+static uintptr_t volatile machine_row[10], sequencer_row[9], start_row[10];
 static int masked;
 uint32_t modwerk_machine_mask(void) { CHECK(!masked); masked = 1; return 7; }
 void modwerk_machine_unmask(uint32_t s) { CHECK(masked && s == 7); masked = 0; }
@@ -143,7 +143,7 @@ static const struct { uint32_t count; struct modwerk_sequencer_row row[3]; } FMQ
     QZ = {3, {{"SCALE", (void *)1, 0}, {"ROOT", (void *)1, 0}, {"GLIDE", (void *)1, 0}}}, MORE = {1, {{"SWING", 0, 0}}};
 static void rows(const void *const *m, unsigned n, const void *const *s, unsigned k)
 {
-    for (unsigned i = 0; i < 5; ++i) machine_row[i] = i < n ? (uintptr_t)m[i] : 0;
+    for (unsigned i = 0; i < 10; ++i) machine_row[i] = i < n ? (uintptr_t)m[i] : 0;
     for (unsigned i = 0; i < 9; ++i) sequencer_row[i] = i < k ? (uintptr_t)s[i] : 0;
     masked = 1; modwerk_machine_tables_changed(); masked = 0;
 }
@@ -255,6 +255,34 @@ static void check_source_starts(void)
     CHECK(!selected_start(0, 7, 0xc0, fm_start) && fm_calls == 1u);
     start_row[0] = 0;
     for (unsigned t = 0; t < 8u; ++t) memset((void *)(part0() + SIG + 30u * t), 0, 3);
+
+    /* All eight admitted machines may own START records. Reverse table order so the first track's
+     * callback is the last record, exercising the full table and its terminator. */
+    struct modwerk_machine all[8];
+    struct modwerk_machine_start starts[8];
+    const void *eight[8];
+    for (unsigned t = 0; t < 8u; ++t) {
+        all[t] = A; all[t].sig[0] = 'S'; all[t].sig[1] = (uint8_t)('0' + t);
+        all[t].flags |= MODWERK_MACHINE_START; all[t].source_kind = 0;
+        starts[t] = (struct modwerk_machine_start){MODWERK_MACHINE_START_ABI, sizeof starts[t], &all[t], source_start};
+        eight[t] = &all[t]; start_row[7u - t] = (uintptr_t)&starts[t];
+        part0()[0x22 + t] = 1;
+        part0()[SIG + 30u * t] = all[t].sig[0]; part0()[SIG + 30u * t + 1u] = all[t].sig[1];
+        part0()[SIG + 30u * t + 2u] = 1;
+    }
+    rows(eight, 8, 0, 0);
+    calls = start_calls;
+    for (unsigned t = 0; t < 8u; ++t)
+        CHECK(selected_start(t, 11, 0xc0, fallback_start) == (int)(1203u + t));
+    CHECK(start_calls == calls + 8u && fallback_calls == 1u && fm_calls == 1u);
+    /* A non-terminated overfull table refuses, without invoking a callback; restoring it recovers. */
+    start_row[8] = (uintptr_t)&starts[0];
+    CHECK(!selected_start(0, 11, 0xc0, fallback_start) && start_calls == calls + 8u);
+    start_row[8] = 0;
+    CHECK(selected_start(0, 11, 0xc0, fallback_start) == 1203 && start_calls == calls + 9u);
+    rows(0, 0, 0, 0);
+    for (unsigned t = 0; t < 10u; ++t) start_row[t] = 0;
+    for (unsigned t = 0; t < 8u; ++t) memset((void *)(part0() + SIG + 30u * t), 0, 3);
 }
 
 int main(void)
@@ -270,6 +298,16 @@ int main(void)
     CHECK(counts_now() == (5u << 24 | 5u << 16 | 4u << 8 | 3u) && clamp_now() == 5);
     CHECK((uintptr_t)mw_name(5) == 0x1001u && mw_type(1, slot(2)) == 1 && mw_assign(part0(), 2, 1) == 1);
     CHECK(mw_source_render_impl(2, 0, 0, 1) == -7 && stock_renders == 1);
+
+    /* Eight machines fill rows 5-12, the last row the cursor reaches; a ninth in the table is not read (ROWS 13). */
+    static const char *const many_names[9] = {"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"};
+    static struct modwerk_machine many[9]; const void *many_rows[9];
+    for (unsigned i = 0; i < 9; ++i)
+        many[i] = (struct modwerk_machine){.abi = MODWERK_MACHINE_ABI, .sig = {'M', (uint8_t)('1' + i)}, .sig_lo = 1, .sig_hi = 1,
+                                           .label = many_names[i]}, many_rows[i] = &many[i];
+    rows(many_rows, 9, 0, 0);
+    CHECK(counts_now() == (13u << 24 | 13u << 16 | 12u << 8 | 3u) && clamp_now() == 12);
+    CHECK(!strcmp(mw_name(5), "M1") && !strcmp(mw_name(12), "M8") && (uintptr_t)mw_name(13) == 0x1001u);
 
     /* A, V, F in row order 5, 6, 7: counts follow, names and pages by row. */
     const void *avf[] = {&A, &V, &F};
