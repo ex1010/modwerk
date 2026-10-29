@@ -1,6 +1,6 @@
 # Octatrack source-machine START callbacks
 
-Contributor: ex1010. Base revision: `8e6aecb142c1273e47ce2d9f235cebbd4f7cf6c9`.
+Contributor: ex1010. Initial base revision: `8e6aecb142c1273e47ce2d9f235cebbd4f7cf6c9`.
 
 A source machine can now contribute one separate versioned 16-byte START record and set `MODWERK_MACHINE_START`. The existing machine descriptor remains ABI 1/80 bytes (88 with the existing SETUP_PAGE extension). No module, FLEX handler-table cell, accepted audio engine or SPACE transport is changed here. Related to FRACT's machine migration in #926.
 
@@ -24,3 +24,9 @@ At dispatch, a missing/duplicate record or an unpaid DSP source refuses START an
 Clean main reproduced the committed base and all seven USB variants with GCC 16.2.0. The candidate was then rebuilt with `node scripts/octatrack-base.mjs --stock <private-1.40C> --beta --write`: all seven layouts passed stock-free scans, declared-site/bootloader safety checks, identical controller links and exact browser/native equality. Default configuration identity: `f58e316beea77cf55f9ced4b21bdf10d0c5776e64613d9e062182efc68e46d15`; default `.bin` SHA-256: `888cb9a6e1ff79172d9fccdf517d150aaba68c24008ba04e6943be5f5c3a4100`. `scripts/octatrack-module-packages.py --base-only --stock <private-1.40C>` rebuilt the five base-bound packages and passed the stricter package stock-byte scan. Only Recorder Loop needed new package bytes because a base entry moved; the other four image hashes are unchanged. The generated bindings and seven variant identities are committed. Whole-repository and isolated-build command results are recorded in the PR description. No new build from this PR has been installed, flashed, cold-booted or audio-qualified on hardware. The author's functional report on the earlier private FRACT pair is not qualification of this shared-base revision. Owner review remains required.
 
 The existing four-machine table capacity is unchanged; increasing it for simultaneous installation of a fifth machine remains the maintainer's separate base change discussed in #926.
+
+## Main refresh on 29 October
+
+After submission, upstream #1030 advanced main to `4690b6eb536e918b393f9d730a43aaae114bd206` and added a card-build frame guard. The branch merges that main: its current card-guard documentation is retained alongside the START instructions. Conflicting generated base assets/bindings were regenerated with the supported tools. The submitted START, registry, admission and loader code is byte-identical to ac6de86e. Previous partial advisory coverage applies to those unchanged authored sources; this is not a new full review.
+
+Clean main was reproduced again in all seven USB layouts, then the merged candidate was rebuilt in all seven layouts with exact native/browser equality and stock-free/declared-site/bootloader/controller-link checks. Refreshed default identity: `36964ce15f6db686c00967a50ad65091a1f5391e2a3d83576549ed47904474ab`; `.bin` SHA-256: `d1c81e8bff6014ab49b5fbec1f8fc545fec064fee21def9f260df9485621ab95`. Its symbols confirm that the new card-only `olog_frame_*`/`olog_render_*` hooks and state are absent from the USB base, while `mw_frame_exit` and `mw_source_start` are present; the USB base keeps its existing single frame guard. Base-bound packages are regenerated for this identity. Updated repository/isolated-build results are in the PR description. No device update or hardware qualification is inferred.
