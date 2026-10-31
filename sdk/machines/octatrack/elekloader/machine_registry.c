@@ -240,9 +240,15 @@ void modwerk_machine_tables_changed(void)
     for (uintptr_t volatile *row = modwerk_runtime_event_row[MACHINES]; *row && n < ROWS - 5u; ++row)
         n += ((const Machine *)*row)->abi == MODWERK_MACHINE_ABI;
     for (unsigned t = 0; t < 8; ++t) { /* a machine that left frees its voices and engine before its memory goes */
-        int kept = 0;
-        for (uintptr_t volatile *row = modwerk_runtime_event_row[MACHINES]; charged[t] && *row; ++row) kept |= *row == (uintptr_t)charged[t];
+        int kept = 0, start_kept = 0;
+        for (uintptr_t volatile *row = modwerk_runtime_event_row[MACHINES]; (charged[t] || start_refused[t]) && *row; ++row) {
+            kept |= *row == (uintptr_t)charged[t];
+            start_kept |= *row == (uintptr_t)start_refused[t];
+        }
         if (charged[t] && !kept) release(t);
+        /* An unrelated table change keeps a live owner's refusal; a departing owner must not leave it at an
+         * address the allocator may reuse for a new machine before that machine's first accepted START. */
+        if (start_refused[t] && !start_kept) start_refused[t] = 0;
     }
     for (unsigned k = 5; k < ROWS; ++k) mw_src_names[k] = (const char *)(uintptr_t)U32(0x400a78c8u + 4), mw_pb_table[k] = FLEX_PAGE;
     counts(n, sequencer());

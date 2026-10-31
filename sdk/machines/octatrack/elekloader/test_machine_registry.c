@@ -293,6 +293,20 @@ static void check_source_starts(void)
     CHECK(!selected_start(0, 11, 0xc0, fallback_start) && start_calls == calls + 8u);
     start_row[8] = 0;
     CHECK(selected_start(0, 11, 0xc0, fallback_start) == 1203 && start_calls == calls + 9u);
+    /* Unrelated table updates retain a live owner's refusal; removal clears it on every track, before the
+     * descriptor address can be reused by a machine that has not accepted its first START. */
+    start_row[0] = 0;
+    for (unsigned t = 0; t < 8u; ++t) CHECK(!selected_start(t, 11, 0xc0, fallback_start));
+    rows(eight, 8, 0, 0);
+    for (unsigned t = 0; t < 8u; ++t) CHECK(start_refused[t] == &all[t]);
+    const void *survivor[] = {&all[1]};
+    rows(survivor, 1, 0, 0);
+    for (unsigned t = 0; t < 8u; ++t) CHECK(start_refused[t] == (t == 1u ? &all[1] : 0));
+    rows(0, 0, 0, 0);
+    for (unsigned t = 0; t < 8u; ++t) CHECK(!start_refused[t]);
+    all[0].flags &= ~MODWERK_MACHINE_START;
+    rows(eight, 1, 0, 0); /* the replacement occupies exactly the removed descriptor's address */
+    fresh(); CHECK(frame(0, 0, 0) > 0); /* its render works before any accepted START */
     rows(0, 0, 0, 0);
     for (unsigned t = 0; t < 10u; ++t) start_row[t] = 0;
     for (unsigned t = 0; t < 8u; ++t) memset((void *)(part0() + SIG + 30u * t), 0, 3);
